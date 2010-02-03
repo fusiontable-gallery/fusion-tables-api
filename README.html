@@ -1,0 +1,82 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+               "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+lang="en" xml:lang="en">
+<head>
+<title>README</title>
+<meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1"/>
+<meta name="generator" content="Org-mode"/>
+<meta name="generated" content="2009/12/21 09:14:37"/>
+<meta name="author" content="Anno Langen"/>
+<style type="text/css">
+  html {
+	font-family: Times, serif;
+	font-size: 12pt;
+  }
+  .title { text-align: center; }
+  pre {
+	border: 1pt solid #AEBDCC;
+	background-color: #F3F5F7;
+	padding: 5pt;
+	font-family: courier, monospace;
+  }
+  table { border-collapse: collapse; }
+  td, th {
+	vertical-align: top;
+	<!--border: 1pt solid #ADB9CC;-->
+  }
+</style>
+</head><body style="max-width:1170px">
+  <h1 class="title">Fusion Tables API demo using OAuth</h1>
+
+This example demonstrates how to use the Fusion Tables API from a foreign web
+server with delegated authorization. It is a simple application demonstrating
+two possible access patterns: First, a user can see a listing of their own
+Fusion Tables on a third party site. Second, the web site can retain the access
+privilege and show the snippet of registered tables to anyone who receives the
+snippet URL. 
+
+<h2><a name="sec-1">Installation</a></h2>
+
+<p>
+This example uses Maven for ease of development and versatility. Obtain Maven
+from <a href="http://maven.apache.org/download.html">http://maven.apache.org/download.html</a>, or your package manager, say, on
+Debian based Linux distributions
+<pre>
+apt-get install maven2
+</pre>
+or on Mac OS with developer tools
+<pre>
+port install maven2
+</pre>
+</p>
+<p>
+IDEs like Eclipse, Intellij, and Netbeans also support Maven natively or
+through extensions. Initially, Maven will download numerous dependencies to
+your local repository.
+</p>
+<ul>
+<li>
+To create an Intellij project
+<pre>
+mvn idea:idea
+</pre>
+</li>
+<li>
+To create an Eclipse project
+<pre>
+mvn eclipse:eclipse
+</pre>
+</li>
+</ul>Eclipse requires an extra step. Configure a classpath variable M2_REPO to the
+folder .m2/repository under your home directory.
+<ul>
+<li>
+To run the example
+<pre>
+mvn jetty:run
+</pre>
+Then point your browser at <a href="http://localhost:8080/snippet">http://localhost:8080/snippet</a>.
+</li>
+</body>
+</html>
