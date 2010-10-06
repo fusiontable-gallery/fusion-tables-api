@@ -41,7 +41,7 @@ import javax.servlet.http.HttpSession;
  */
 public class FusionTablesAccessor {
 
-  public static final String API_URL = "http://tables.googlelabs.com/api/query";
+  public static final String API_URL = "http://www.google.com/fusiontables/api/query";
 
   private final HttpServletResponse resp;
   private final HttpSession session;
@@ -63,7 +63,7 @@ public class FusionTablesAccessor {
     OAuthClient client = new OAuthClient(new HttpClient4());
     try {
       List<OAuth.Parameter> parameters = OAuth.newList("sql", sql);
-      OAuthMessage apiRequest = accessor.newRequestMessage(null, API_URL, parameters);
+      OAuthMessage apiRequest = accessor.newRequestMessage("POST", API_URL, parameters);
       OAuthMessage message = client.invoke(apiRequest, ParameterStyle.AUTHORIZATION_HEADER);
       return message.readBodyAsString();
     } catch (OAuthProblemException e) {

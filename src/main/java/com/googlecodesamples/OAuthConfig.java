@@ -35,7 +35,7 @@ public class OAuthConfig {
   /**
    * OAuth scope for Fusion Tables API.
    */
-  private static final String SCOPE = "http://tables.googlelabs.com/api/query";
+  private static final String SCOPE = "http://www.google.com/fusiontables/api/query";
 
   /**
    * OAuth configuration for Google and Fusion Tables API scope.
