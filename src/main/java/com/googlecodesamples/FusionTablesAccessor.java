@@ -41,7 +41,7 @@ import javax.servlet.http.HttpSession;
  */
 public class FusionTablesAccessor {
 
-  public static final String API_URL = "http://www.google.com/fusiontables/api/query";
+  public static final String API_URL = "https://www.google.com/fusiontables/api/query";
 
   private final HttpServletResponse resp;
   private final HttpSession session;
