@@ -16,66 +16,60 @@
 
 package com.googlecodesamples;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.HashSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import com.google.api.services.fusiontables.Fusiontables;
+import com.google.api.services.fusiontables.model.Table;
+import com.google.api.services.fusiontables.model.TableList;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.HashSet;
 
 /**
- * Shows list of tables for the currently authorized user. Requires {@code OAuthAccessFilter} to
- * ensure that the current session has an {@code OAuthAccessor}. Invokes Fusion Tables API with SQL
- * {@code show tables}. Displays each table with a link to either register or view a snippet.
+ * Shows list of tables for the currently authorized user. Invokes Fusion Tables API with
+ * Table.list. Displays each table with a link to either register or view a snippet.
  *
  * @author googletables-feedback@google.com (Anno Langen)
  */
 public class ShowTablesServlet extends HttpServlet {
 
   public static final String URI = "show_tables";
-  private static final String QUOTED_CELL = "\"(?:[^\"]*\"\")*[^\"]*\"";
-  private static final String UNQUOTED_CELL = "[^\",\\n\\r]*";
-  private static final String CELL = "((?:" + QUOTED_CELL + ")|(?:" + UNQUOTED_CELL
-      + "))(,|\\r?\\n)";
-  protected static final Pattern CELL_PATTERN = Pattern.compile(CELL);
 
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws ServletException, IOException {
     PrintWriter out = resp.getWriter();
-    FusionTablesAccessor accessor = new FusionTablesAccessor(req, resp);
-    String body = accessor.invokeSql("show tables");
-    HashSet<Long> registeredTables = new HashSet<Long>();
+    OAuth2Tokens tokens = OAuth2Tokens.getSessionTokens(req);
+    Fusiontables apiHandle = FusionTablesAccessor.getFusiontables(tokens);
+    TableList tableList = apiHandle.table().list().execute();
+
+    HashSet<String> registeredTables = new HashSet<String>();
     for (TableData tableData : TableStore.THE_ONE.getAll()) {
       registeredTables.add(tableData.id);
     }
 
-    Matcher m = CELL_PATTERN.matcher(body);
     out.println("<html><head><title>My Fusion Tables</title>");
     out.println("<link rel='stylesheet' type='text/css' href='style.css'>");
     out.println("<script type='text/javascript' src='godocs.js'></script></head>");
-    out.println("<body style=\"max-width:1170\"><h1>Fusion Tables Listing</h1>");
+    out.println("<body style='max-width:1170'><h2>Fusion Tables Listing</h2>");
     out.println(
         "Once registered, you and the rest of the world can see a 10 row snippet of the table.");
     out.println("<a href='https://www.google.com/accounts/IssuedAuthSubTokens'>"
         + "Manage authorized websites</a> to revoke this permission.<p>");
-    if (m.find() && m.find()) {// skip header cells
+    if (tableList != null && tableList.size() > 0) {
       out.println("<table>");
-      while (m.find()) {
-        long id = Long.parseLong(m.group(1));
-        if (!m.find()) {
-          break;
-        }
-        String name = m.group(1);
-        boolean isRegistered = registeredTables.contains(id);
-        out.print("<tr><td>" + name + "</td><td><a href='"
-            + (isRegistered ? SnippetServlet.URI : AddTableServlet.URI)
-            + "?table=" + id + "&title=" + name + "'>"
-            + (isRegistered ? "View Snippet" : "Register") + "</a></td></tr>");
+      for (Table table : tableList.getItems()) {
+        boolean isRegistered = registeredTables.contains(table.getTableId());
+        out.print(
+            "<tr><td>" + table.getName()
+                + "</td><td><a href='"
+                + (isRegistered ? SnippetServlet.URI : AddTableServlet.URI)
+                + "?table=" + table.getTableId() + "&title=" + table.getName() + "'>"
+                + (isRegistered ? "View Snippet" : "Register")
+                + "</a></td></tr>");
       }
       out.println("</table>");
     }

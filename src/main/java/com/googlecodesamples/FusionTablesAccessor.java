@@ -16,64 +16,67 @@
 
 package com.googlecodesamples;
 
-import net.oauth.OAuth;
-import net.oauth.OAuthAccessor;
-import net.oauth.OAuthException;
-import net.oauth.OAuthMessage;
-import net.oauth.OAuthProblemException;
-import net.oauth.ParameterStyle;
-import net.oauth.client.OAuthClient;
-import net.oauth.client.httpclient4.HttpClient4;
-import net.oauth.http.HttpMessage;
+import com.google.api.client.auth.oauth2.BearerToken;
+import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.auth.oauth2.CredentialRefreshListener;
+import com.google.api.client.googleapis.auth.oauth2.GoogleOAuthConstants;
+import com.google.api.client.http.HttpExecuteInterceptor;
+import com.google.api.client.http.HttpRequest;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.fusiontables.Fusiontables;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.List;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import java.util.Collections;
 
 /**
- * Invokes Fusion Tables API with OAuth access token from servlet session.
+ * Returns Fusiontables API handle for {@link OAuth2Tokens}.
  *
  * @author googletables-feedback@google.com (Anno Langen)
  */
 public class FusionTablesAccessor {
 
-  public static final String API_URL = "https://www.google.com/fusiontables/api/query";
+  public static final HttpTransport HTTP_TRANSPORT = new NetHttpTransport();
+  public static final JacksonFactory JSON_FACTORY = new JacksonFactory();
 
-  private final HttpServletResponse resp;
-  private final HttpSession session;
+  // Refresh tokens require a non-null client authentication instance.
+  public static final HttpExecuteInterceptor NOOP_CLIENT_AUTHENTICATION =
+      new HttpExecuteInterceptor() {
+    public void intercept(HttpRequest request) throws IOException {
+    }
+  };
 
-  public FusionTablesAccessor(HttpServletRequest req, HttpServletResponse resp) {
-    this.resp = resp;
-    session = req.getSession(true);
+  /**
+   * Returns Fusiontables API handle for {@link OAuth2Tokens}.
+   */
+  public static Fusiontables getFusiontables(OAuth2Tokens tokens) throws IOException {
+    return new Fusiontables.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredential(tokens))
+        // Shuts up warning from AbstractGoogleClient.
+        .setApplicationName("snippet")
+        .build();
   }
 
   /**
-   * Invokes Fusion Tables API with the given SQL command. Uses the given servlet response and
-   * servlet context to send an error and log problems.
-   *
-   * @return Fusion Tables repsonse as a string, or null if an error was sent
+   * Builds a Credential for use with the Fusiontables client API from {@link OAuth2Tokens}.
    */
-  protected String invokeSql(String sql) throws IOException {
+  // This is non-obvious because the API is tailored for online access, where the user's
+  // authorization is tied to the session and a new access token can be fetched with redirects. The
+  // snippet application requires ``offline'' access where a table owner can sanction
+  // unauthenticated access to a snippet of their private table. Offline access is evidently rare
+  // for web applications and explains the need for registering the OAuth2Tokens instance as a
+  // refresh listener. When the access token is about to expire a new refresh token is requested and
+  // made available through a listener interface.
+  private static Credential getCredential(OAuth2Tokens tokens) throws IOException {
+    return newCredentialBuilder(tokens).build().setFromTokenResponse(tokens.toTokenResponse());
+  }
 
-    OAuthAccessor accessor = OAuthConfig.getSessionAccessor(session);
-    OAuthClient client = new OAuthClient(new HttpClient4());
-    try {
-      List<OAuth.Parameter> parameters = OAuth.newList("sql", sql);
-      OAuthMessage apiRequest = accessor.newRequestMessage("POST", API_URL, parameters);
-      OAuthMessage message = client.invoke(apiRequest, ParameterStyle.AUTHORIZATION_HEADER);
-      return message.readBodyAsString();
-    } catch (OAuthProblemException e) {
-      session.getServletContext().log("" + e.getParameters().get(HttpMessage.RESPONSE), e);
-      resp.sendError(e.getHttpStatusCode());
-      return null;
-    } catch (URISyntaxException e) {
-      throw new AssertionError(e);
-    } catch (OAuthException e) {
-      throw new AssertionError(e);
-    }
+  private static Credential.Builder newCredentialBuilder(final OAuth2Tokens tokens) {
+    return new Credential.Builder(BearerToken.authorizationHeaderAccessMethod())
+        .setTransport(HTTP_TRANSPORT)
+        .setJsonFactory(JSON_FACTORY)
+        .setClientAuthentication(NOOP_CLIENT_AUTHENTICATION)
+        .setRefreshListeners(Collections.<CredentialRefreshListener>singleton(tokens))
+        .setTokenServerEncodedUrl(GoogleOAuthConstants.TOKEN_SERVER_URL);
   }
 }

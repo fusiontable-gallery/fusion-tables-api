@@ -16,38 +16,29 @@
 
 package com.googlecodesamples;
 
-import net.oauth.OAuth;
-import static net.oauth.OAuth.OAUTH_CALLBACK;
-import static net.oauth.OAuth.OAUTH_TOKEN;
-import static net.oauth.OAuth.OAUTH_TOKEN_SECRET;
-import net.oauth.OAuthAccessor;
-import net.oauth.OAuthException;
-import net.oauth.OAuthProblemException;
-import net.oauth.client.OAuthClient;
-import net.oauth.client.httpclient4.HttpClient4;
-import net.oauth.http.HttpMessage;
+import com.google.api.client.auth.oauth2.AuthorizationCodeFlow;
+import com.google.api.client.auth.oauth2.AuthorizationCodeRequestUrl;
+import com.google.api.client.auth.oauth2.AuthorizationCodeResponseUrl;
+import com.google.api.client.auth.oauth2.AuthorizationCodeTokenRequest;
+import com.google.api.client.auth.oauth2.TokenResponse;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.jackson2.JacksonFactory;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import java.io.IOException;
+import java.util.Collections;
 
 /**
- * Obtains an OAuth access token, and saves it in session state. This filter implements all client
+ * Obtains OAuth2 tokens, and saves them in session state. This filter implements all client
  * steps of the OAuth dance.
  *
- * <ul><li>On the first invocation, the session lacks an access token and the request lacks an
- * {@code oauth_token_secret} parameter. In that case the filter obtains a request token, constructs
- * a callback URL for the current request URL that includes an {@code oauth_token_secret} parameter,
+ * <ul><li>On the first invocation, the session lacks OAuth2 tokens and is not the special URI
+ * registered for OAuth2 callback. In that case the filter obtains a request token, constructs a
+ * callback URL for the current request URL that includes an {@code oauth_token_secret} parameter,
  * and uses this callback in a redirect to the authorization URL.</li>
  *
  * <li>The second invocation is a redirect from the authorizer to the provided callback. Now the
@@ -65,14 +56,28 @@ import javax.servlet.http.HttpSession;
 public class OAuthAccessFilter implements Filter {
 
   /**
-   * Session attribute name for the OAuth access token.
+   * Session attribute name for continuing with a successful authorization.
    */
-  public static final String OAUTH_ACCESS_TOKEN = "oauth_acces_token";
+  public static final String OAUTH_CONTINUE_URL = "oauth_continue_url";
 
-  private ServletContext context;
+  /**
+   * Four constants from the web application client registration at
+   * <a href='http://code.google.com/apis/console#access'>API console</a>.
+   */
+  private String clientId;
+  private String clientSecret;
+  private String scope;
+  private String registeredCallbackUri;
+
+  /** URL to redirect to when user declines to authorize this application. */
+  private String nonConsentRedirect;
 
   public void init(FilterConfig config) throws ServletException {
-    context = config.getServletContext();
+    clientId = config.getInitParameter("client_id");
+    clientSecret = config.getInitParameter("client_secret");
+    registeredCallbackUri = config.getInitParameter("registered_callback_uri");
+    scope = config.getInitParameter("oauth_scope");
+    nonConsentRedirect = config.getInitParameter("user_consent_denied_redirect");
   }
 
   public void destroy() {
@@ -81,31 +86,61 @@ public class OAuthAccessFilter implements Filter {
   public void doFilter(ServletRequest req, ServletResponse resp, FilterChain chain)
       throws ServletException, IOException {
     HttpServletRequest httpReq = (HttpServletRequest) req;
-    if (hasSessionAccessToken(httpReq)) {
-      // This session obtained an access token previously.
-      chain.doFilter(req, resp);
-      return;
-    }
-
-    String token = req.getParameter(OAUTH_TOKEN);
-    String secret = req.getParameter(OAUTH_TOKEN_SECRET);
-    if (token != null && secret != null) {
-      // Step Two. This is a callback from the Authorizer
-      String accessToken = getAccessToken(token, secret, httpReq.getSession(true));
-      httpReq.getSession(true).setAttribute(OAUTH_ACCESS_TOKEN, accessToken);
-      chain.doFilter(req, resp);
-      return;
-    }
-
-    // Step One: Create a callback to this request URL that includes the token secret and use this
-    // callback in the redirect to the Authorizer
-    OAuthAccessor accessor = getRequestToken(httpReq.getSession(true));
-    String url = getFullRequestUrl(httpReq);
-    String callback = OAuth.addParameters(url, OAUTH_TOKEN_SECRET, accessor.tokenSecret);
     HttpServletResponse httpResp = (HttpServletResponse) resp;
-    httpResp.sendRedirect(
-        OAuth.addParameters(accessor.consumer.serviceProvider.userAuthorizationURL, OAUTH_TOKEN,
-            accessor.requestToken, OAUTH_CALLBACK, callback));
+
+    if (!hasSessionOAuth2Tokens(httpReq)) {
+      String fullRequestUrl = getFullRequestUrl(httpReq);
+      if (!registeredCallbackUri.endsWith(httpReq.getRequestURI())) {
+        // First invocation for this session. Save request URL and redirect to user consent flow
+        httpReq.getSession(true).setAttribute(OAUTH_CONTINUE_URL, fullRequestUrl);
+        AuthorizationCodeRequestUrl authorizationUrl = newFlow().newAuthorizationUrl();
+        authorizationUrl.setRedirectUri(registeredCallbackUri);
+        // This application provides public access to a snippet, even for private tables, when the
+        // owner is "offline".
+        authorizationUrl.set("access_type", "offline");
+        httpResp.sendRedirect(authorizationUrl.build());
+        return;
+      }
+
+      // Handling the registered OAuth2 callback. Check for valid consent code.
+      AuthorizationCodeResponseUrl responseUrl = new AuthorizationCodeResponseUrl(fullRequestUrl);
+      String code = responseUrl.getCode();
+      if (responseUrl.getError() != null) {
+        httpResp.sendRedirect(nonConsentRedirect);
+        return;
+      }
+      if (code == null) {
+        httpResp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        resp.getWriter().print("Missing authorization code");
+        return;
+      }
+      HttpSession session = httpReq.getSession(false);
+      if (session == null || session.getAttribute(OAUTH_CONTINUE_URL) == null) {
+        httpResp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        resp.getWriter().print("Illegal OAuth2 state");
+        return;
+      }
+
+      // We have a valid consent code. Now redeem the code for OAuth2 tokens.
+      AuthorizationCodeTokenRequest tokenRequest = newFlow().newTokenRequest(code);
+      TokenResponse response = tokenRequest.setRedirectUri(registeredCallbackUri).execute();
+
+      // Save the tokens to the current session and redirect to the URL saved in the first step.
+      new OAuth2Tokens(response).setForSession(httpReq);
+      String continueUrl = (String) session.getAttribute(OAUTH_CONTINUE_URL);
+      session.removeAttribute(OAUTH_CONTINUE_URL);
+      httpResp.sendRedirect(continueUrl);
+      return;
+    }
+    // OAuth2 tokens are stored in the session.
+    chain.doFilter(req, resp);
+  }
+
+  private AuthorizationCodeFlow newFlow() {
+    return new GoogleAuthorizationCodeFlow.Builder(new NetHttpTransport(), new JacksonFactory(),
+        clientId, clientSecret, Collections.singleton(scope))
+      //  .setCredentialStore(new MemoryCredentialStore())
+        .build();
   }
 
   private static String getFullRequestUrl(HttpServletRequest httpReq) {
@@ -120,48 +155,7 @@ public class OAuthAccessFilter implements Filter {
   /**
    * Indicates whether the session contains an OAuth access token.
    */
-  private static boolean hasSessionAccessToken(HttpServletRequest httpReq) {
-    HttpSession session = httpReq.getSession(false);
-    return session != null && session.getAttribute(OAUTH_ACCESS_TOKEN) != null;
-  }
-
-  /**
-   * Requests a request token and returns the accessor, whose state includes token and the
-   * corresponding token secret.
-   */
-  private OAuthAccessor getRequestToken(HttpSession session) throws IOException {
-    OAuthAccessor accessor = OAuthConfig.getSessionAccessor(session);
-    OAuthClient client = new OAuthClient(new HttpClient4());
-    try {
-      client.getRequestToken(accessor, null);
-    } catch (OAuthProblemException e) {
-      context.log("" + e.getParameters().get(HttpMessage.RESPONSE), e);
-    } catch (OAuthException e) {
-      context.log("OAuth problem: ", e);
-    } catch (URISyntaxException e) {
-      throw new AssertionError(e);
-    }
-    return accessor;
-  }
-
-  /**
-   * Upgrades the given token and token secret to an access token.
-   */
-  private String getAccessToken(String token, String secret, HttpSession session)
-      throws IOException {
-    OAuthAccessor accessor = OAuthConfig.getSessionAccessor(session);
-    accessor.requestToken = token;
-    accessor.tokenSecret = secret;
-    OAuthClient client = new OAuthClient(new HttpClient4());
-    try {
-      client.getAccessToken(accessor, null, null);
-    } catch (OAuthProblemException e) {
-      context.log("" + e.getParameters().get(HttpMessage.RESPONSE), e);
-    } catch (OAuthException e) {
-      context.log("OAuth problem: ", e);
-    } catch (URISyntaxException e) {
-      throw new AssertionError(e);
-    }
-    return accessor.accessToken;
+  private static boolean hasSessionOAuth2Tokens(HttpServletRequest httpReq) {
+    return OAuth2Tokens.getSessionTokens(httpReq) != null;
   }
 }

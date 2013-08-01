@@ -12,17 +12,15 @@ snippet URL.
 This example uses Maven for ease of development and versatility. Obtain Maven
 from http://maven.apache.org/download.html, or your package manager, say, on
 Debian based Linux distributions
-:apt-get install maven2
+: apt-get install maven2
 or on Mac OS with developer tools
-:port install maven2
+: port install maven2
 
-IDEs like Eclipse, Intellij, and Netbeans also support Maven natively or
+IDEs like Eclipse, Intellij, and Netbeans support Maven natively or
 through extensions. Initially, Maven will download numerous dependencies to
 your local repository.
 
-- To create an Intellij project
-
-:mvn idea:idea
+- To create an Intellij project: "Open Project" and navigate to the pom.xml file.
 
 - To create an Eclipse project
 
@@ -33,6 +31,6 @@ folder .m2/repository under your home directory.
 
 - To run the example
 
-:mvn jetty:run
+: mvn jetty:run
 
 Then point your browser at http://localhost:8080/snippet.

@@ -16,18 +16,15 @@
 
 package com.googlecodesamples;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
 
 /**
- * Shows a snippet of up to 10 rows from the indicated table. Requires {@code RegisteredTableFilter}
- * to ensure that the table parameter has registered OAuth credentials. Invokes Fusion Tables API
- * with SQL {@code select * from ... limit 10}.
+ * Lists tables registered with AddTableServlet for which we store OAuth2Tokens.
  *
  * @author googletables-feedback@google.com (Anno Langen)
  */

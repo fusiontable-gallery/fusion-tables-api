@@ -27,7 +27,7 @@ import java.util.Map;
  */
 public interface TableStore {
 
-  TableData lookup(long id);
+  TableData lookup(String id);
 
   void store(TableData table);
 
@@ -40,9 +40,9 @@ public interface TableStore {
    */
   class MemTableStore implements TableStore {
 
-    private final Map<Long, TableData> map = new HashMap<Long, TableData>();
+    private final Map<String, TableData> map = new HashMap<String, TableData>();
 
-    public TableData lookup(long id) {
+    public TableData lookup(String id) {
       return map.get(id);
     }
 

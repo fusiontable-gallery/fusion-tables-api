@@ -27,18 +27,16 @@ import javax.persistence.Id;
 
 @Entity
 public class TableData {
-  @Id public long id;
+  @Id public String id;
   public String title;
-  public String oauthAccess;
-  public String oauthSecret;
+  public OAuth2Tokens tokens;
 
   public TableData() {
   }
 
-  public TableData(long id, String title, String oauthAccess, String oauthSecret) {
+  public TableData(String id, String title, OAuth2Tokens tokens) {
     this.id = id;
-    this.oauthAccess = oauthAccess;
-    this.oauthSecret = oauthSecret;
     this.title = title;
+    this.tokens = tokens;
   }
 }

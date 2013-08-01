@@ -16,24 +16,17 @@
 
 package com.googlecodesamples;
 
-import net.oauth.OAuthAccessor;
-
+import javax.servlet.*;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpServletRequest;
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
 import static javax.servlet.http.HttpServletResponse.SC_CONFLICT;
 
 /**
  * Enforces that the query parameter {@code table} refers to a registered table, for which we have
- * an access token. Copies OAuth secret and access token to session scoped OAuthAccessor.
+ * OAuth2 tokens. Makes the tokens available as a request attribute.
  *
  * @author googletables-feedback@google.com (Anno Langen)
  */
@@ -53,23 +46,12 @@ public class RegisteredTableFilter implements Filter {
       httpResponse.sendError(SC_BAD_REQUEST, "missing parameter: table");
       return;
     }
-    long tableId;
-    try {
-      tableId = Long.parseLong(table);
-    } catch (NumberFormatException e) {
-      httpResponse.sendError(SC_BAD_REQUEST, "malformed table parameter: " + e.getMessage());
-      return;
-    }
-    TableData tableData = TableStore.THE_ONE.lookup(tableId);
+    TableData tableData = TableStore.THE_ONE.lookup(table);
     if (tableData == null) {
-      httpResponse.sendError(SC_CONFLICT, "table not registered: " + tableId);
+      httpResponse.sendError(SC_CONFLICT, "table not registered: " + table);
       return;
     }
-    HttpServletRequest httpReq = (HttpServletRequest) req;
-    OAuthAccessor sessionAccessor = OAuthConfig.getSessionAccessor(httpReq.getSession(true));
-    sessionAccessor.tokenSecret = tableData.oauthSecret;
-    sessionAccessor.accessToken = tableData.oauthAccess;
+    tableData.tokens.setForRequest((HttpServletRequest) req);
     chain.doFilter(req, resp);
-    // TODO(arl) Detect revoked access and remove the table from store
   }
 }

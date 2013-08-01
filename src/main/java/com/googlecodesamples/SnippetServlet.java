@@ -16,12 +16,16 @@
 
 package com.googlecodesamples;
 
-import java.io.IOException;
+import com.google.api.services.fusiontables.Fusiontables;
+import com.google.api.services.fusiontables.model.Sqlresponse;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.List;
 
 /**
  * Shows a snippet of up to 10 rows from the indicated table. Requires {@code RegisteredTableFilter}
@@ -37,10 +41,29 @@ public class SnippetServlet extends HttpServlet {
   @Override
   protected void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws ServletException, IOException {
-    FusionTablesAccessor accessor = new FusionTablesAccessor(req, resp);
-    String body = accessor.invokeSql("select * from " + req.getParameter("table") + " limit 10");
+    OAuth2Tokens tokens = OAuth2Tokens.getRequestTokens(req);
+    Fusiontables apiHandle = FusionTablesAccessor.getFusiontables(tokens);
+    String statement = "select * from " + req.getParameter("table") + " limit 10";
+    Sqlresponse body = apiHandle.query().sql(statement).execute();
     if (body != null) {
-      resp.getWriter().println(body);
+      PrintWriter out = resp.getWriter();
+      out.println("<table border=1 cellspacing=0 cellpadding=3 bordercolor=lightgrey>");
+      out.append("<tr style='background:#e0e0e0'>");
+      for (String column : body.getColumns()) {
+        out.append("<th>").append(column).append("</th>");
+      }
+      out.println("</tr>");
+      List<List<Object>> rows = body.getRows();
+      if (rows != null) {
+        for (List<Object> row : rows) {
+          out.append("<tr>");
+          for (Object cell : row) {
+            out.append("<td>").append(String.valueOf(cell)).append("</td>");
+          }
+          out.println("</tr>");
+        }
+      }
+      out.println("</table>");
     }
   }
 }

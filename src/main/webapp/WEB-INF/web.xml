@@ -4,13 +4,39 @@
 
 <web-app>
   <filter>
+    <!-- Filter requires user consent for accessing fusiontables and records OAuth credentials in the session. -->
     <filter-name>OAuthAccessFilter</filter-name>
-    <filter-class>com.googlecodesamples.OAuthAccessFilter</filter-class>
+      <filter-class>com.googlecodesamples.OAuthAccessFilter</filter-class>
+      <!-- The scope parameter limits the user consent. In this example it is fusiontables. -->
+      <init-param>
+          <param-name>oauth_scope</param-name>
+          <param-value>https://www.googleapis.com/auth/fusiontables</param-value>
+      </init-param>
+      <!-- These three parameters reflect a specific client ID for web applications, which is configured at
+      https://code.google.com/apis/console#access -->
+      <init-param>
+        <param-name>client_id</param-name>
+        <param-value>609896949987-182nsmu1466vldklbvk7lhe536rok1fd.apps.googleusercontent.com</param-value>
+      </init-param>
+      <init-param>
+          <param-name>client_secret</param-name>
+          <param-value>BfaQoRWYR9Ufm0R8JWkJAiT8</param-value>
+      </init-param>
+      <init-param>
+          <param-name>registered_callback_uri</param-name>
+          <param-value>http://localhost:8080/snippet/oauth2callback</param-value>
+      </init-param>
+      <init-param>
+        <param-name>user_consent_denied_redirect</param-name>
+        <param-value>consent_denied.html</param-value>
+      </init-param>
   </filter>
+  <!-- Filter enforces that the table query parameter identities a registered table-->
   <filter>
     <filter-name>RegisteredTableFilter</filter-name>
     <filter-class>com.googlecodesamples.RegisteredTableFilter</filter-class>
   </filter>
+
   <filter-mapping>
     <filter-name>OAuthAccessFilter</filter-name>
     <servlet-name>AddTableServlet</servlet-name>
@@ -23,6 +49,7 @@
     <filter-name>RegisteredTableFilter</filter-name>
     <servlet-name>SnippetServlet</servlet-name>
   </filter-mapping>
+
   <servlet>
     <servlet-name>AddTableServlet</servlet-name>
     <servlet-class>com.googlecodesamples.AddTableServlet</servlet-class>
@@ -48,6 +75,10 @@
     <url-pattern>/show_tables</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
+    <servlet-name>ShowTablesServlet</servlet-name>
+    <url-pattern>/oauth2callback</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
     <servlet-name>SnippetServlet</servlet-name>
     <url-pattern>/snippet</url-pattern>
   </servlet-mapping>
@@ -56,6 +87,6 @@
     <url-pattern>/list_registered</url-pattern>
   </servlet-mapping>
   <welcome-file-list>
-    <welcome-file>/index.html</welcome-file>
+    <welcome-file>index.html</welcome-file>
   </welcome-file-list>
 </web-app>

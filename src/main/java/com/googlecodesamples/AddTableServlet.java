@@ -16,14 +16,12 @@
 
 package com.googlecodesamples;
 
-import net.oauth.OAuthAccessor;
-
-import java.io.IOException;
-
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
 import static javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST;
 
 /**
@@ -40,23 +38,12 @@ public class AddTableServlet extends HttpServlet {
   @Override
   protected void service(HttpServletRequest req, HttpServletResponse resp)
       throws ServletException, IOException {
-    String tableString = req.getParameter("table");
-    if (tableString == null) {
+    String table = req.getParameter("table");
+    if (table == null) {
       resp.sendError(SC_BAD_REQUEST, "missing parameter: table");
       return;
     }
-    long table;
-    try {
-      table = Long.parseLong(tableString);
-    } catch (NumberFormatException e) {
-      resp.sendError(SC_BAD_REQUEST, "malformed table parameter: " + e.getMessage());
-      return;
-    }
-
-    OAuthAccessor accessor = OAuthConfig.getSessionAccessor(req.getSession(true));
-    String title = req.getParameter("title");
-    TableStore.THE_ONE.store(
-        new TableData(table, title, accessor.accessToken, accessor.tokenSecret));
+    TableStore.THE_ONE.store(new TableData(table, req.getParameter("title"), OAuth2Tokens.getSessionTokens(req)));
     resp.sendRedirect(ShowTablesServlet.URI);
   }
 }
