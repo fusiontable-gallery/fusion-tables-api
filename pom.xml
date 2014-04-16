@@ -13,17 +13,12 @@
     <dependency>
       <groupId>com.google.apis</groupId>
       <artifactId>google-api-services-fusiontables</artifactId>
-      <version>v1-rev26-1.15.0-rc</version>
+      <version>v1-rev45-1.18.0-rc</version>
     </dependency>
     <dependency>
       <groupId>com.google.http-client</groupId>
       <artifactId>google-http-client-jackson2</artifactId>
-      <version>1.15.0-rc</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.oauth-client</groupId>
-      <artifactId>google-oauth-client-servlet</artifactId>
-      <version>1.15.0-rc</version>
+      <version>1.18.0-rc</version>
     </dependency>
     <dependency>
       <groupId>javax.servlet</groupId>
@@ -44,8 +39,8 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>2.0.2</version>
         <configuration>
-          <source>1.6</source>
-          <target>1.6</target>
+          <source>1.7</source>
+          <target>1.7</target>
         </configuration>
       </plugin>
       <plugin>
